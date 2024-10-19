@@ -3,6 +3,7 @@ package streaming
 import (
 	"context"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"net/http"
 	"sync"
@@ -122,7 +123,7 @@ func (s *Server) ServeBinaryWs(config *config.Config) func(w http.ResponseWriter
 	return func(w http.ResponseWriter, r *http.Request) {
 		if ws := s.promoteToWebsocket(w, r); ws != nil {
 			ctx := context.WithValue(context.Background(), SocketContext, map[string]interface{}{"request": r})
-			requestIdentity, err := extractIdentityFromConnection(ctx, r)
+			requestIdentity, err := extractIdentityFromConnection(ctx, r, config)
 			if err != nil {
 				s.logger.ErrorLog("extract_sender_id_err", err, nil)
 			}
@@ -150,8 +151,8 @@ func (s *Server) promoteToWebsocket(w http.ResponseWriter, r *http.Request) *web
 	return ws
 }
 
-func extractIdentityFromConnection(ctx context.Context, r *http.Request) (*telemetry.RequestIdentity, error) {
-	cert, err := extractCertFromHeaders(ctx, r)
+func extractIdentityFromConnection(ctx context.Context, r *http.Request, config *config.Config) (*telemetry.RequestIdentity, error) {
+	cert, err := extractCertFromHeaders(ctx, r, config)
 	if err != nil {
 		return nil, err
 	}
@@ -166,13 +167,39 @@ func extractIdentityFromConnection(ctx context.Context, r *http.Request) (*telem
 	}, nil
 }
 
-func extractCertFromHeaders(ctx context.Context, r *http.Request) (*x509.Certificate, error) {
+func extractCertFromHeaders(ctx context.Context, r *http.Request, config *config.Config) (*x509.Certificate, error) {
+	if config.TLS.CustomClientCertHeader != "" {
+		return extractCertFromCustomHeader(ctx, r, config.TLS.CustomClientCertHeader)
+	}
+
 	nbCerts := len(r.TLS.PeerCertificates)
 	if nbCerts == 0 {
 		return nil, fmt.Errorf("missing_certificate_error")
 	}
 
 	return r.TLS.PeerCertificates[nbCerts-1], nil
+}
+
+func extractCertFromCustomHeader(ctx context.Context, r *http.Request, headerName string) (*x509.Certificate, error) {
+	certPEM := []byte(r.Header.Get(headerName))
+
+	if len(certPEM) == 0 {
+		return nil, fmt.Errorf("invalid_certificate_error")
+	}
+
+	block, _ := pem.Decode(certPEM)
+
+	if block == nil || block.Type != "CERTIFICATE" {
+		return nil, fmt.Errorf("invalid_certificate_error")
+	}
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return cert, nil
 }
 
 func registerServerMetricsOnce(metricsCollector metrics.MetricCollector) {

@@ -71,5 +71,12 @@ func startServer(config *config.Config, airbrakeNotifier *gobrake.Notifier, logg
 	if server.TLSConfig, err = config.ExtractServiceTLSConfig(logger); err != nil {
 		return err
 	}
+
+	if config.TLS.ServerCert == "" && config.TLS.ServerKey == "" {
+		logger.ActivityLog("WARNING! No server TLS certificate is configured!", nil)
+
+		return server.ListenAndServe()
+	}
+
 	return server.ListenAndServeTLS(config.TLS.ServerCert, config.TLS.ServerKey)
 }

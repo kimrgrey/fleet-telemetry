@@ -148,9 +148,17 @@ var defaultProdCA []byte
 
 // TLS config
 type TLS struct {
-	CAFile     string `json:"ca_file"`
+	CAFile string `json:"ca_file"`
+
+	// Server TLS key and cert, leave empty only if fleet-telemetry
+	// is running behind proxy which terminates mTLS connection
 	ServerCert string `json:"server_cert"`
 	ServerKey  string `json:"server_key"`
+
+	// Configures custom HTTP header to read client certificate from.
+	// Can be used if fleet-telemetry is running behind proxy which
+	// terminates mTLS connection
+	CustomClientCertHeader string `json:"client_cert_header"`
 }
 
 // AirbrakeTlsConfig return the TLS config needed for connecting with airbrake server
