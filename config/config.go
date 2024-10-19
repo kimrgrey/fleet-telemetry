@@ -158,7 +158,7 @@ type TLS struct {
 	// Configures custom HTTP header to read client certificate from.
 	// Can be used if fleet-telemetry is running behind proxy which
 	// terminates mTLS connection
-	CustomClientCertHeader string `json:"client_cert_header"`
+	CustomClientCertHeader string `json:"custom_client_cert_header"`
 }
 
 // AirbrakeTlsConfig return the TLS config needed for connecting with airbrake server
